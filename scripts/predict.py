@@ -23,4 +23,4 @@ def main(toml_cfg_path):
 
 
 if __name__ == "__main__":
-    main(toml_cfg_path="config/doc_quest_config.toml")
+    main(toml_cfg_path="config/config.toml")

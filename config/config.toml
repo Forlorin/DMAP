@@ -404,6 +404,7 @@ r_image_key = "image-top-{retrieval.top_k}-{retrieval.image_question_key}"
 r_mix_key = "mix-top-{retrieval.top_k}-{retrieval.mix_question_key}"
 r_text_index_key = "text-index-path-{retrieval.text_question_key}"
 cuda_visible_devices = "1"
+
 [retrieval.image]
 model_type = "image"
 model_name = "ColpaliRetrieval"

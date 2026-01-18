@@ -21,4 +21,4 @@ def main(toml_cfg_path):
     docSummarizer.index_dataset(dq_cfg["prompts"]["index_document_prompt"])
 
 if __name__ == "__main__":
-    main(toml_cfg_path="config/doc_quest_config.toml")
+    main(toml_cfg_path="config/config.toml")

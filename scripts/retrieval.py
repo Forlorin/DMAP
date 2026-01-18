@@ -4,7 +4,6 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from mydatasets.BaseDataset import BaseDataset
 from retrieval.doc_retrieval import TextRetrieval, imageRetrieval
-import importlib
 import toml  # type: ignore[import-untyped]
 import argparse
 
@@ -31,4 +30,4 @@ def main(toml_cfg_path):
 
 
 if __name__ == "__main__":
-    main(toml_cfg_path="/path/to/your/file.toml")
+    main(toml_cfg_path="config/config.toml")

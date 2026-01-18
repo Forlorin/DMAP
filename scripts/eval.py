@@ -22,4 +22,4 @@ def main(toml_cfg_path):
 
 
 if __name__ == "__main__":
-    main(toml_cfg_path="/path/to/your/file.toml")
+    main(toml_cfg_path="config/config.toml")
