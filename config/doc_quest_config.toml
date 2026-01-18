@@ -1,0 +1,442 @@
+[prompts]
+general_agent = """
+You are an advanced agent capable of analyzing both text and images. Your task is to use both the textual and visual information provided to answer the user’s question accurately.
+Extract Text from Both Sources: If the image contains text, extract it using OCR, and consider both the text in the image and the provided textual content.
+Analyze Visual and Textual Information: Combine details from both the image (e.g., objects, scenes, or patterns) and the text to build a comprehensive understanding of the content.
+Provide a Combined Answer: Use the relevant details from both the image and the text to provide a clear, accurate, and context-aware response to the user's question.
+When responding:
+If both the image and text contain similar or overlapping information, cross-check and use both to ensure consistency.
+If the image contains information not present in the text, include it in your response if it is relevant to the question.
+If the text and image offer conflicting details, explain the discrepancies and clarify the most reliable source.
+Since you have access to both text and image data, you can provide a more comprehensive answer than agents with single-source data.
+Question:
+"""
+text_agent = """
+You are a text analysis agent. Your job is to extract key information from the text and use it to answer the user’s question accurately. Here are the steps to follow:
+Extract key details: Focus on the most important facts, data, or ideas related to the question.
+Understand the context: Pay attention to the meaning and details.
+Provide a clear answer: Use the extracted information to give a concise and relevant response to user's question.
+Remeber you can only get the information from the text provided, so maybe other agents can help you with the image information.
+If the provided reference content cannot answer the question, do not add any extra explanation, directly output "not answerable".
+Question:
+"""
+sum_agent = """
+You are tasked with summarizing and evaluating the collective responses provided by multiple agents. You have access to the following information:  
+**Answers**: The individual answers from all agents.
+
+Using this information, perform the following tasks:
+1. **Filter**: Ignore any agent who indicates that they are unable or unwilling to provide an answer. Only consider responses from agents who explicitly offer a solution or reasoning.
+2. **Analyze**: Evaluate the quality, consistency, and relevance of each valid answer. Identify commonalities, discrepancies, or gaps in reasoning.  
+3. **Synthesize**: Summarize the most accurate and reliable information based on the evidence provided by the agents and their discussions.  
+4. **Conclude**: Provide a final, well-reasoned answer to the question or task. Your conclusion should reflect the consensus (if one exists) or the most credible and well-supported answer.
+
+Based on the provided answers from all agents, summarize the final decision clearly. You should only return the final answer in this dictionary format:  
+```json
+{"Answer": "<Your final answer here>"}
+```
+Do not include any additional information or explanation.
+"""
+image_agent = """
+You are an advanced image processing agent specialized in analyzing and extracting information from images. The images may include document screenshots, illustrations, or photographs. Your primary tasks include:
+Extracting textual information from images using Optical Character Recognition (OCR).
+Analyzing visual content to identify relevant details (e.g., objects, patterns, scenes).
+Combining textual and visual information to provide an accurate and context-aware answer to user's question.
+Remeber you can only get the information from the images provided, so maybe other agents can help you with the text information.
+If the provided reference content cannot answer the question, do not add any extra explanation, directly output "not answerable".
+Question:
+"""
+critical_prompt = """
+Provide a Python dictionary of 2 keypoints which you need for the question based on all given information. One is for text, the other is for image.
+Respond exclusively in valid Dictionary of str format without any other text. For example, the format shold be: {"text": "keypoint for text", "image": "keypoint for image"}.
+"""
+
+# locate_prompt = """
+
+# You are an expert assistant for analyzing questions in a Retrieval-Augmented Generation (RAG) system. Your task is to perform two types of analysis on the given question and document summarize:
+
+# ---
+
+# #### **Task 1: Source Modality Determination**
+# Determine whether the answer should be primarily derived from **text** or **image-based content** (including figures, tables, and charts).
+
+# - If the main source of information is **text**, output: `"Text"`.
+# - If the main source of information is **image-based** (e.g., data from a figure or table), output: `"Image"`.
+# - If the question requires combining both text and images, or if you're unsure, output: `"General"`.
+
+# This result should be returned under the key `"modal"`.
+# ---
+
+# #### **Task 2: Location Identification**
+# Identify any references to specific locations in the question, such as pages, tables, figures.
+# I will provide you with a summary of a document, which is summarized page by page. 
+# - If the question mentions a **page number**, e.g., "Page 1", "page ii", etc., convert it into the format: `"Page {number}"`, where `{number}` is the integer representation of the page.
+# - Find the most relevant pages to the question, based on the summary of each page.
+# - If the question refers to a **table**, **figure**, extract the number and format it as: `"Table {number}"`, `"Figure {number}"`.
+# - If there are no specific location references return `"not mentioned"`.
+
+# Output all identified location references in a JSON array under the key `"location"`.
+
+# ### Output Format
+# Return your analysis in the following JSON format:
+# {
+#   "modal": "Text | Image | General",
+#   "location": ["Page 1", "Table 2", "Figure 3", ...] | ["not mentioned"]
+# }
+# ---
+
+# ### Example
+
+# #### **Input:**
+# Summarize: [summarize of the document]
+# Qustion: Based on Table 1 and Figure 2 in page 11, calculate the total number of participants.
+
+# #### **Output:**
+# {
+#   "modal": "Text | Image | General",
+#   "location": ["Table 1", "Figure 2","Page 11"]
+# }
+# ### Input:
+# """
+locate_prompt = """
+
+You are an expert assistant for analyzing questions in a Retrieval-Augmented Generation (RAG) system. Your task is to identify and infer the most relevant locations in a document based on the question, document summary, and outline.
+
+---
+
+#### **Task: Location Identification, Inference, and Ranking**
+
+I will provide:
+1. A **document summary**, summarized page by page.
+2. A **document outline** in the format: "{section number} {section name} <|> pages"
+3. A **question** that may refer to specific content.
+
+Your task is to:
+1. **Extract explicit location references** from the question:
+   - If a **page number** is mentioned (e.g., "Page 1", "page ii"), convert it to: `"Page {number}"`, where `{number}` is the integer form (e.g., "ii" → 2).
+   - If a **table** or **figure** is mentioned, extract the number and format as: `"Table {number}"`, `"Figure {number}"`.
+2. **Infer implicit locations** when no explicit reference exists:
+   - Use the **document summary** and **outline** to determine the most likely page(s) related to the question.
+   - Match keywords, topics, or concepts in the question to the summaries and section titles.
+   - If a section in the outline covers the topic and lists specific pages, infer one or more of those pages as likely locations.
+   - Always provide at least one plausible page if the topic can be reasonably located.
+3. **Rank all identified and inferred locations by relevance**:
+   - Sort the final list in **descending order of relevance to the question**.
+   - The most directly related page or element should appear first.
+   - For example, if the question asks about "Table 3" and it appears on Page 7, but Page 8 only tangentially discusses it, then `"Table 3"` and `"Page 7"` should precede `"Page 8"`.
+4. If **no location can be inferred at all**, return `["not mentioned"]`.
+
+Output all location references in a JSON array under the key `"location"`, **ordered by relevance**.
+
+### Output Format
+Return your result in the following JSON format:
+{
+  "location": ["Page 7", "Table 3", "Page 8", ...] | ["not mentioned"]
+}
+> Note: Elements are ordered from most to least relevant.
+
+---
+### Example 1
+
+#### **Input:**
+Outline:
+3 Results <|> 7,8
+3.1 Discussion <|> 8,9
+4 Limitations <|> 10,11
+
+Summarize:
+Page 7: Primary outcomes of the trial, including efficacy rates.
+Page 8: Subgroup analysis and secondary endpoints.
+Page 10: Interpretation of results in context of prior work.
+Page 13: Study limitations, including sample size and duration.
+
+Question: What were the efficacy rates observed in the primary outcome?
+
+#### **Output:**
+{
+  "location": ["Page 7"]
+}
+
+---
+
+### Input:
+"""
+advice_prompt="""
+You are tasked with evaluating the responses provided by multiple agents.
+Your primary focus should be on the answer given by the **{agent_name}** agent. After careful analysis and reasoning, it is more likely that the correct answer comes from this agent.
+Use this insight to guide your final decision or response.
+"""
+figure_prompt="""
+Here are some figures or tables mentioned in the question, use these as reference
+"""
+eval_prompt="""
+Question: {question}
+Predicted Answer: {answer}
+Ground Truth Answer: {gt}
+
+Please evaluate if the predicted answer is correct compared to the ground truth, considering the following criteria:
+
+- If the Ground Truth Answer is "Not answerable":
+  - And the Predicted Answer indicates that the model cannot answer (e.g., "insufficient information", "cannot be determined", "no relevant information available", etc.), then it is considered CORRECT (score 1).
+
+- Otherwise:
+  - Score based on whether the Predicted Answer is factually and logically consistent with the Ground Truth Answer.
+  - The wording of the answer and the ground truth does not need to be exactly the same; as long as the meaning is the same, it should be considered correct
+
+Score the answer on:
+Binary correctness (0-1): 1 if the answer is correct, 0 if it is incorrect
+
+Return only a JSON-parsable string in the format: {{"binary_correctness": <score>}}
+Output:
+"""
+
+# generate a summary in one go, prone to hallucinations and basically unusable.
+# index_generate=""" 
+# You are tasked with performing a page-by-page summary of a document. Follow these steps:
+
+# First, divide the document into sections.
+# Under each section, summarize each page.
+# If a page contains figures or tables, include a brief summary of them within the page's summary.
+# Each summary should be concise—limited to one sentence.
+# The final output should follow this format:
+# ## Part 1 : [Part summary]
+# - Page {number}: [One-sentence summary of the page content.]
+#   - Figure {name}: [One-sentence summary of the figure.]
+
+# - Page {number}: [One-sentence summary of the page content.]
+#   - Table {name}: [One-sentence summary of the table.]
+
+# ## Part 2: : [Part summary]
+# - Page {number}: [One-sentence summary of the page content.]
+# ...
+# Ensure clarity and consistency in your summaries, and maintain the structure above.
+
+# Here is the document:
+# """
+
+
+# generate a summary page by page, more accurate, but use more token.
+# summarize_prompt="""
+# You are tasked with processing a document page by page to simultaneously:
+# 1. Generate a concise summary of the current page.
+# 2. Maintain and update a hierarchical document outline that maps section titles to the pages they span.
+
+# You will be given:
+# The current cumulative outline (as a numbered hierarchy with page mappings),
+# The previous page (for context),
+# The current new page to process,
+# The current page number.
+
+# For each new page, perform the following steps:
+# Step 1: Update the Document Outline
+# Analyze the current page for any explicit section headings (e.g., "1. Introduction", "3.2 Experimental Setup") or implicit topic shifts that suggest a new logical section.
+# If a new section heading is detected:
+# Assign it the next appropriate hierarchical number (e.g., if the last top-level was "2", a new top-level becomes "3"; if under "3", a new subsection becomes "3.1", etc.).
+# Add this section to the outline with its title and initialize its page list with the current page number.
+# If the content continues an existing section (even without a heading), identify the most specific (deepest-level) active section(s) that this page belongs to.
+# Important: A single page may belong to multiple sections (e.g., spanning the end of one subsection and the start of another). In such cases, add the page number to all relevant sections, including their parent sections.
+# Always propagate the page number upward to all ancestor sections in the hierarchy.
+# Step 2: Summarize the Current Page
+# 1. Provide a one-sentence summary of the page's main content. If the page is blank or has no meaningful content, summarize it as "no content".
+# 2. Identify any figures or tables on the page. For each:
+# If a caption or name is explicitly provided (e.g., "Figure 1: System Architecture"), use it exactly as written. If no label is given but a caption exists, format as Figure : [caption] or Table : [caption]. Do not invent names.
+# Provide a one-sentence description of the figure or table.
+# If there are no figures or tables, omit this part—only include it when present.
+# Output Format
+# Your response must strictly follow this structure:
+
+# Outline:
+# {updated current full outline}
+# {each line formatted as: {number}:{title} < > {comma-separated page numbers}}
+
+# Current page summary:
+# Page {number}: [One-sentence summary of the page content.]
+# Figure {name}: [One-sentence summary of the figure.]
+# Table {name}: [One-sentence summary of the table.]
+
+# OR, if the page has no content and no figures/tables:
+
+# Outline:
+# {updated current full outline}
+
+# Current page summary:
+# Page {number}: no content
+# no figure or table
+
+# Important Notes:
+# Only output the updated outline and the summary for the current page—do not repeat prior page summaries.
+# Maintain consistent numbering and hierarchy in the outline across pages.
+# Never fabricate section titles; infer only when strongly supported by content structure or semantic shift.
+# Page numbers in the outline must be sorted and deduplicated.
+# """
+
+
+#  generate outline, annotate, balancing accuracy and resource consumption, has requirements for GPU memory size.
+summarize_prompt=""" 
+You are tasked with summarizing a document page by page. You will be given:
+- The current summary that has been built so far,
+- The previous page (for context),
+- And a new page as the current page to process.
+
+For each new page:
+1. Provide a summary of the page's main content. If the page is blank or has no meaningful content, summarize it as "no content".
+2. Identify any figures or tables on the page. For each:
+   - If a name or caption is provided (e.g., "Figure 1: Overview of System Architecture"), include the name.If no name is provided, leave it blank,like this: ```Figure : Overview of System Architecture```.Don't name the pictures yourself.
+   - Provide a one-sentence description of the figure or table.
+   - If this page does not contain any figure and table, there is no need to summarize them — only a summary of the page is required.
+3. Maintain a structured output format as described below.
+
+The final output should follow this format:
+```
+- Page {number}: [One-sentence summary of the page content.]
+  - Figure {name}: [One-sentence summary of the figure.]
+  - Table: [One-sentence summary of the table.]
+```
+or
+```
+- Page {number}: no content
+  - no figure or table
+```
+Just provide the summary for the current new page.
+"""
+
+summary_index_prompt="""
+You are tasked with assigning a page number to the correct section(s) in a document outline. I will provide you with:  
+1. An outline where some sections have already been annotated with page numbers.  
+2. The current page number to be annotated.  
+3. The previous page number, provided as context.  
+
+Your responsibilities:  
+- Determine which section(s) on the current page belong to the outline structure.  
+- Return only the section number(s) (as strings) of the most specific (lowest-level) section(s) that appear on this page.  
+- A single page may contain content from multiple sections—include all such section numbers.  
+- The output must be a JSON object formatted exactly as:  
+```json
+{"section_numbers": ["2.1", "2.2", "3"]}
+```
+
+Important constraints:
+- Pages are provided sequentially. You are processing one page at a time in order.
+- You **must not** assign the current page to a section that precedes the last annotated section in the outline, as this would violate the sequential flow.
+- The current page can only belong to one of the following:
+  a) The same section that was last annotated (i.e., the section ending on the previous page), since a section may span multiple pages.
+  b) The next logical section(s) in the outline—this could be the immediate next sibling section or a sub-section (child) of the current hierarchical context.
+- Do not skip sections: if the content continues in the same section, reuse that section number. Only advance when the content clearly moves forward.
+
+You must return **only** the JSON object as specified. Do not include any additional text, explanation, or formatting.
+
+Now, process the input and return the result in the required JSON format.
+```
+
+Do not include any additional explanation or text—only return the JSON object as specified.
+
+Now, please process the input and return the result in the required format.
+"""
+index_document_prompt="""
+You will be provided with a document. Your task is to generate a structured outline following these rules:
+
+- Create a multi-level summary of the document, with each level numbered and accompanied by the corresponding section title.  
+- If the original document contains sections and headings, use the original titles exactly. If no titles exist, create concise, meaningful titles in the form of words or short phrases.  
+- If the document includes a table of contents, strictly follow its structure. Additionally, identify and include any finer subdivisions within sections if they are logically distinct.  
+- Each entry in the outline must be formatted as:  
+  `{number}:{title} <|> {page numbers}`  
+  where:  
+  - `{number}` is the hierarchical section number (e.g., 1, 2, 2.1, 2.2, 3),  
+  - `{title}` is the section title,  
+  - `{page numbers}` is a comma-separated list of page numbers on which that section appears.  
+- Each section must be on its own line.  
+- For sections spanning multiple pages, list all relevant page numbers. Subsections should reflect their actual page coverage, which may overlap with parent sections.
+
+Example Output:
+1:abstract <|> 1
+2:introduction <|> 2
+3:related work <|> 3, 4, 5
+3.1:work 1 <|> 3, 4
+3.2:work 2 <|> 4, 5
+
+Do not include any additional text, explanations, or formatting outside of the outline. Return only the outline as specified above.
+"""
+
+
+reflect_prompt="""
+You will be given a question and a corresponding answer. Your task is to determine whether the answer addresses the question, regardless of whether the answer is correct or not.
+
+Focus only on whether the answer responds to the question and covers the necessary points (i.e., no essential content is missing).
+If no answer is provided (e.g., blank, "not answerable", or similar), consider it as not answering.
+Respond only with "yes" or "no", in lowercase. Do not include any explanations, punctuation, or additional text.
+Question:
+
+{question}
+
+Answer:
+
+{answer}
+
+Did the answer address the question? (yes/no)
+"""
+
+reflect_answer_prompt="""
+You will be provided with images of document pages. Based on these images, you need to answer the given questions. Please follow these guidelines:
+
+Content Understanding: Carefully read and understand the content of each page provided.
+Question Answering: Accurately answer the question based on the information available in the provided pages. If the relevant information is not present in the pages, state 'not answerable'
+Answer Format: Provide a concise and clear answer directly without additional explanations or background information.
+Multiple Pages Handling: If multiple pages are provided, synthesize information from all relevant pages to form your final answer.
+"""
+
+[run_args]
+run_name="dq_test"
+cuda_visible_devices = "0,1"
+save_freq = 10               # Frequency of saving checkpoints
+ans_key = "ans_{run_args.run_name}"   # Key name for generated answers during prediction
+save_message = false         # Set to true to record responses from all agents
+work_dir="/path/to/your/file"
+max_retry=2
+sample_select_num=1000
+[retrieval]
+sample_select_num=-1
+class_path = "retrieval.{retrieval.model_type}_retrieval.{retrieval.model_name}"
+top_k = 10
+doc_key = "doc_id"
+text_question_key = "question"
+image_question_key = "question"
+r_text_key = "text-top-{retrieval.top_k}-{retrieval.text_question_key}"
+r_image_key = "image-top-{retrieval.top_k}-{retrieval.image_question_key}"
+r_mix_key = "mix-top-{retrieval.top_k}-{retrieval.mix_question_key}"
+r_text_index_key = "text-index-path-{retrieval.text_question_key}"
+cuda_visible_devices = "1"
+[retrieval.image]
+model_type = "image"
+model_name = "ColpaliRetrieval"
+embed_dir = "./tmp/{retrieval.image.model_name}/{retrieval.image_question_key}"
+batch_size = 1
+
+
+[retrieval.text]
+model_type = "text"
+model_name = "ColbertRetrieval"
+
+[dataset]
+name = ""
+top_k = 3
+question_key = "question"
+gt_key = "answer"
+page_id_key = "page_ids"
+max_page = 1000
+max_character_per_page = 100000
+use_mix = false
+
+r_text_key = "{retrieval.r_text_key}"
+r_image_key = "{retrieval.r_image_key}"
+r_mix_key = "{retrieval.r_mix_key}"
+
+data_dir = "{run_args.work_dir}/data/{dataset.name}"
+result_dir = "{run_args.work_dir}/results/{dataset.name}/{run_args.run_name}"
+extract_path = "{run_args.work_dir}/tmp/{dataset.name}"
+document_path = "{run_args.work_dir}/data/{dataset.name}/documents"
+sample_path = "{dataset.data_dir}/samples.json"
+sample_with_retrieval_path = "{dataset.data_dir}/sample-with-retrieval-results.json"
+summary_path = "{run_args.work_dir}/tmp/summary/{dataset.name}"
+index_path = "{run_args.work_dir}/tmp/index/{dataset.name}"
+pdffigure2_extract_path="{run_args.work_dir}/tmp/pdffigure2/{dataset.name}"
+pdffigure2_path="{run_args.work_dir}/mydatasets/pdffigures2"
+sqlite_path="{run_args.work_dir}/data/fileObjects.db"
